@@ -6,6 +6,7 @@ default:
 	@echo "make update	get latest version of CoreOS Stable"
 	@echo "make ign	run butane script to update ignition file"
 	@echo "make build	update ignition file and run packer build"
+	@echo "make clean	remove the builds output directory
 
 .PHONY: update
 update:
