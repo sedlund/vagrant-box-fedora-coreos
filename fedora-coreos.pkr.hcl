@@ -42,7 +42,7 @@ variable "os_name" {
 
 variable "cpus" {
   type    = string
-  default = "1"
+  default = "2"
 }
 
 variable "disk_size" {
@@ -67,7 +67,7 @@ variable "https_proxy" {
 
 variable "memory" {
   type    = string
-  default = "1024"
+  default = "2048"
 }
 
 variable "no_proxy" {
@@ -86,7 +86,7 @@ locals {
 }
 
 source "virtualbox-iso" "fedora-coreos" {
-  boot_command            = ["curl -LO http://{{ .HTTPIP }}:{{ .HTTPPort }}/transpiled_config.ign<enter><wait>", "sudo coreos-installer install /dev/sda --ignition-file transpiled_config.ign && sudo reboot<enter>", "<wait90s>"]
+  boot_command            = ["curl -LO http://{{ .HTTPIP }}:{{ .HTTPPort }}/config.ign<enter><wait>", "sudo coreos-installer install /dev/sda --ignition-file config.ign && sudo reboot<enter>", "<wait90s>"]
   boot_wait               = "45s"
   cpus                    = "${var.cpus}"
   disk_size               = "${var.disk_size}"
@@ -106,8 +106,12 @@ source "virtualbox-iso" "fedora-coreos" {
   ssh_private_key_file    = "${path.root}/files/vagrant-id_rsa"
   ssh_timeout             = "10000s"
   ssh_username            = "vagrant"
-  vboxmanage              = [["modifyvm", "{{ .Name }}", "--graphicscontroller", "vmsvga"], ["modifyvm", "{{ .Name }}", "--vram", "9"]]
   virtualbox_version_file = ""
+  vboxmanage              = [
+				["modifyvm", "{{ .Name }}", "--graphicscontroller", "vmsvga"],
+				["modifyvm", "{{ .Name }}", "--vram", "9"],
+				["modifyvm", "{{ .Name }}", "--nat-localhostreachable1", "on"]
+			    ]
 }
 
 build {
