@@ -18,3 +18,7 @@ ign:
 .PHONY: build
 build: ign
 	 packer build -var-file="stable.pkrvars.hcl" fedora-coreos.pkr.hcl
+
+.PHONY: clean
+clean:
+	rm -rf builds
