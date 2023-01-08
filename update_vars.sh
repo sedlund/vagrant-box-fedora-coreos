@@ -7,7 +7,7 @@ if ! command -v jq >/dev/null 2>&1; then
     exit 1
 fi
 
-printf "\nDownloading JSON files\n\n"
+printf "\nChecking for latest CoreOS Release.\n\n"
 
 stable=$(curl 'https://builds.coreos.fedoraproject.org/streams/stable.json' | \
 jq \
