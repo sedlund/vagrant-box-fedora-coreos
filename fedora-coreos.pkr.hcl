@@ -1,15 +1,3 @@
-variable cloud_token {}
-
-variable box_version {
-  type        = string
-  description = "Semantic version for Vagrant Cloud box version"
-
-  validation {
-    condition     = can(regex("(\\d).(\\d).(\\d)", var.box_version))
-    error_message = "The box_version value must be a valid semver."
-  }
-}
-
 variable "iso_url" {
   type        = string
   description = "The URL of the Fedora CoreOS stable ISO image."
@@ -124,34 +112,20 @@ build {
     scripts           = ["${path.root}/provision/provision.sh"]
   }
 
+# https://developer.hashicorp.com/vagrant/docs/boxes/info
   post-processors {
     post-processor "artifice" {
       files = ["${var.build_directory}/packer-${var.os_name}-virtualbox/info.json"]
     }
     post-processor "shell-local" {
-      inline = ["echo '{\"os_name\": \"${var.os_name}\", \"release\": \"${var.release}\"}' > ${local.workdirpacker}/info.json"]
+      inline = ["echo {\"os_name\": \"${var.os_name}\", \"release\": \"${var.release}\"} > ${local.workdirpacker}/info.json"]
     }
   }
-  post-processors {
-    post-processor "vagrant" {
-      compression_level    = 9
-      include              = ["${local.workdirpacker}/info.json"]
-      output               = "${var.build_directory}/${var.os_name}-${var.release}_{{.Provider}}.box"
-      provider_override    = "virtualbox"
-      vagrantfile_template = "${path.root}/files/vagrantfile"
-    }
-    post-processor "vagrant-cloud" {
-      access_token = "${var.cloud_token}"
-      box_tag      = "gigaohm/fedora-coreos"
-      version      = "${var.box_version}"
-      version_description = <<EOF
-Built from https://github.com/gigaohm/vagrant-box-fedora-coreos/tree/vagrant-cloud
-
-os_name: `${var.os_name}`
-
-release: `${var.release}`
-EOF
-    }
+  post-processor "vagrant" {
+    compression_level    = 9
+    include              = ["${local.workdirpacker}/info.json"]
+    output               = "${var.build_directory}/${var.os_name}-${var.release}_{{.Provider}}.box"
+    provider_override    = "virtualbox"
+    vagrantfile_template = "${path.root}/files/vagrantfile"
   }
 }
-

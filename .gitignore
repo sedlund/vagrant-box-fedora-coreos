@@ -3,4 +3,3 @@
 *.iso
 builds/
 packer_cache
-secrets.pkrvars.hcl
