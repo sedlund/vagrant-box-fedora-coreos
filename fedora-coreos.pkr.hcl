@@ -124,12 +124,13 @@ build {
     scripts           = ["${path.root}/provision/provision.sh"]
   }
 
+# https://developer.hashicorp.com/vagrant/docs/boxes/info
   post-processors {
     post-processor "artifice" {
       files = ["${var.build_directory}/packer-${var.os_name}-virtualbox/info.json"]
     }
     post-processor "shell-local" {
-      inline = ["echo '{\"os_name\": \"${var.os_name}\", \"release\": \"${var.release}\"}' > ${local.workdirpacker}/info.json"]
+      inline = ["echo {\"os_name\": \"${var.os_name}\", \"release\": \"${var.release}\"} > ${local.workdirpacker}/info.json"]
     }
   }
   post-processors {
