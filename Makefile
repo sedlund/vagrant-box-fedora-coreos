@@ -1,4 +1,4 @@
-# vi: ts=4 list noexpandtab
+# vi: tabstop=4 list noexpandtab
 
 .PHONY: default
 default:
