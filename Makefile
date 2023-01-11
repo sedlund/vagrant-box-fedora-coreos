@@ -6,6 +6,7 @@ default:
 	@echo "make update	get latest version of CoreOS Stable"
 	@echo "make ign	run butane script to update ignition file"
 	@echo "make build	update ignition file and run packer build"
+	@echo "make build-qemu	update ignition file and run packer qemu build"
 	@echo "make clean	remove the builds output directory"
 
 .PHONY: update
@@ -19,6 +20,10 @@ ign:
 .PHONY: build
 build: ign
 	 packer build -var-file="stable.pkrvars.hcl" fedora-coreos.pkr.hcl
+
+.PHONY: build-qemu
+build-qemu: ign
+	 packer build -var-file="stable.pkrvars.hcl" fedora-coreos-qemu.pkr.hcl
 
 .PHONY: clean
 clean:
