@@ -33,6 +33,11 @@ variable "cpus" {
   default = "2"
 }
 
+variable "memory" {
+  type    = string
+  default = "2048M"
+}
+
 variable "disk_size" {
   type    = string
   default = "40000"
@@ -53,11 +58,6 @@ variable "https_proxy" {
   default = "${env("https_proxy")}"
 }
 
-variable "memory" {
-  type    = string
-  default = "2048"
-}
-
 variable "no_proxy" {
   type    = string
   default = "${env("no_proxy")}"
@@ -74,24 +74,27 @@ locals {
 }
 
 source "qemu" "fedora-coreos" {
-  accelerator       = "kvm"
-  boot_wait = "45s"
+  accelerator = "kvm"
+  boot_wait   = "45s"
   boot_command = ["curl -LO http://{{ .HTTPIP }}:{{ .HTTPPort }}/config.ign<enter><wait>",
     "sudo coreos-installer install /dev/sda --ignition-file config.ign",
     "&& sudo reboot<enter>",
     "<wait90s>",
   ]
-  disk_size         = "${var.disk_size}"
-  format            = "qcow2"
-  iso_checksum      = "sha256:${var.iso_checksum}"
-  iso_url           = "${var.iso_url}"
-  output_directory  = "${local.workdirpacker}"
-  qemuargs          = [["-m", "${var.memory}"]]
-  shutdown_command  = "sudo shutdown now"
-  ssh_password      = "packer"
-  ssh_username      = "core"
-  vm_name           = "container-linux-${var.release}.qcow2"
-  http_directory    = "${local.http_directory}"
+  disk_size        = "${var.disk_size}"
+  format           = "qcow2"
+  iso_checksum     = "sha256:${var.iso_checksum}"
+  iso_url          = "${var.iso_url}"
+  output_directory = "${local.workdirpacker}"
+  qemuargs = [
+    ["-smp", "${var.cpus}"],
+    ["-m", "${var.memory}"]
+  ]
+  shutdown_command = "sudo shutdown now"
+  ssh_password     = "packer"
+  ssh_username     = "core"
+  vm_name          = "container-linux-${var.release}.qcow2"
+  http_directory   = "${local.http_directory}"
 }
 
 build {
@@ -115,9 +118,9 @@ build {
   }
   post-processors {
     post-processor "vagrant" {
-      compression_level    = 9
-      include              = ["${local.workdirpacker}/info.json"]
-      output               = "${var.build_directory}/${var.os_name}-${var.release}_{{.Provider}}.box"
+      compression_level = 9
+      include           = ["${local.workdirpacker}/info.json"]
+      output            = "${var.build_directory}/${var.os_name}-${var.release}_{{.Provider}}.box"
       /* provider_override    = "virtualbox" */
       vagrantfile_template = "${path.root}/files/vagrantfile"
     }
