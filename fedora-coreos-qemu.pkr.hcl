@@ -30,7 +30,7 @@ variable "os_name" {
 
 variable "cpus" {
   type    = string
-  default = "2"
+  default = "4"
 }
 
 variable "memory" {
@@ -75,10 +75,11 @@ locals {
 
 source "qemu" "fedora-coreos" {
   accelerator = "kvm"
-  boot_wait   = "45s"
-  boot_command = ["curl -LO http://{{ .HTTPIP }}:{{ .HTTPPort }}/config.ign<enter><wait>",
-    "sudo coreos-installer install /dev/sda --ignition-file config.ign",
-    "&& sudo reboot<enter>",
+  boot_wait   = "110s"
+  # FIXME: calculate --ignition-hash sha256-<hash> above
+  boot_command = [
+    "sudo coreos-installer install /dev/vda --insecure-ignition --ignition-url http://{{ .HTTPIP }}:{{ .HTTPPort }}/config.ign",
+    " && sudo reboot<enter>",
     "<wait90s>",
   ]
   disk_size        = "${var.disk_size}"
@@ -90,22 +91,26 @@ source "qemu" "fedora-coreos" {
     ["-smp", "${var.cpus}"],
     ["-m", "${var.memory}"]
   ]
-  shutdown_command = "sudo shutdown now"
-  ssh_password     = "packer"
-  ssh_username     = "core"
-  vm_name          = "container-linux-${var.release}.qcow2"
-  http_directory   = "${local.http_directory}"
+  shutdown_command = "sudo systemctl poweroff"
+  /* ssh_password     = "packer" */
+  /* ssh_username     = "core" */
+  ssh_username         = "vagrant"
+  ssh_private_key_file = "${path.root}/files/vagrant-id_rsa"
+  ssh_timeout          = "10000s"
+  vm_name              = "container-linux-${var.release}.qcow2"
+  http_directory       = "${local.http_directory}"
 }
 
 build {
   sources = ["source.qemu.fedora-coreos"]
 
-  provisioner "shell" {
-    environment_vars  = ["http_proxy=${var.http_proxy}", "https_proxy=${var.https_proxy}", "no_proxy=${var.no_proxy}"]
-    execute_command   = "sudo -E env {{ .Vars }} bash '{{ .Path }}'"
-    expect_disconnect = false
-    scripts           = ["${path.root}/provision/provision.sh"]
-  }
+  # Anything that would be done here should be done in the ignition file
+  /* provisioner "shell" { */
+  /*   environment_vars  = ["http_proxy=${var.http_proxy}", "https_proxy=${var.https_proxy}", "no_proxy=${var.no_proxy}"] */
+  /*   execute_command   = "sudo -E env {{ .Vars }} bash '{{ .Path }}'" */
+  /*   expect_disconnect = false */
+  /*   scripts           = ["${path.root}/provision/provision.sh"] */
+  /* } */
 
   # https://developer.hashicorp.com/vagrant/docs/boxes/info
   post-processors {
@@ -121,7 +126,8 @@ build {
       compression_level = 9
       include           = ["${local.workdirpacker}/info.json"]
       output            = "${var.build_directory}/${var.os_name}-${var.release}_{{.Provider}}.box"
-      /* provider_override    = "virtualbox" */
+      # FIXME Required?: https://developer.hashicorp.com/packer/plugins/post-processors/vagrant/vagrant#artifice
+      /* provider_override    = "qemu" */
       vagrantfile_template = "${path.root}/files/vagrantfile"
     }
   }
