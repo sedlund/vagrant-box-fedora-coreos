@@ -4,6 +4,7 @@ set -e
 
 if ! command -v jq >/dev/null 2>&1; then
     echo "You need to install jq"
+    echo "https://github.com/stedolan/jq/releases/latest"
     exit 1
 fi
 
@@ -29,6 +30,6 @@ printf "iso_url = $stable_location
 iso_checksum = $stable_sha256
 release = $stable_release
 os_name = \"fedora-coreos-stable\"" \
-| tee stable.pkrvars.hcl
+  | tee stable.pkrvars.hcl
 
 printf "\n\nVars file created\n"

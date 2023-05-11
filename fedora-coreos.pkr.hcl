@@ -19,12 +19,12 @@ variable "iso_checksum" {
 }
 
 variable "release" {
-  type    = string
+  type        = string
   description = "The Fedora CoreOS release number."
 }
 
 variable "os_name" {
-  type    = string
+  type        = string
   description = "The Fedora CoreOS OS name."
 }
 
@@ -34,8 +34,9 @@ variable "cpus" {
 }
 
 variable "disk_size" {
-  type    = string
-  default = "73728"
+  type = string
+  # Packer default is 40G
+  default = "40G"
 }
 
 variable "headless" {
@@ -54,7 +55,8 @@ variable "https_proxy" {
 }
 
 variable "memory" {
-  type    = string
+  type = string
+  # Packer default is 512M
   default = "2048"
 }
 
@@ -64,17 +66,22 @@ variable "no_proxy" {
 }
 
 variable "build_directory" {
-  type = string
+  type    = string
   default = "builds"
 }
 
 locals {
   http_directory = "${path.root}/http"
-  workdirpacker  = "${var.build_directory}/packer-${var.os_name}-${var.release}-virtualbox"
+  workdirpacker  = "${var.build_directory}/packer-${var.os_name}-${var.release}"
 }
 
-source "virtualbox-iso" "fedora-coreos" {
-  boot_command            = ["curl -LO http://{{ .HTTPIP }}:{{ .HTTPPort }}/config.ign<enter><wait>", "sudo coreos-installer install /dev/sda --ignition-file config.ign && sudo reboot<enter>", "<wait90s>"]
+source "virtualbox-iso" "fcos" {
+  # https://developer.hashicorp.com/packer/plugins/builders/virtualbox/iso
+  boot_command = [
+    "sudo coreos-installer install /dev/sda --insecure-ignition --ignition-url http://{{ .HTTPIP }}:{{ .HTTPPort }}/config.ign",
+    " && sudo reboot<enter>",
+    "<wait90s>"
+  ]
   boot_wait               = "45s"
   cpus                    = "${var.cpus}"
   disk_size               = "${var.disk_size}"
@@ -88,44 +95,90 @@ source "virtualbox-iso" "fedora-coreos" {
   iso_url                 = "${var.iso_url}"
   keep_registered         = false
   memory                  = "${var.memory}"
-  output_directory        = "${local.workdirpacker}"
-  shutdown_command        = "sudo shutdown -h now"
+  output_directory        = "${local.workdirpacker}-virtualbox"
+  shutdown_command        = "sudo poweroff"
   ssh_port                = 22
   ssh_private_key_file    = "${path.root}/files/vagrant-id_rsa"
   ssh_timeout             = "10000s"
   ssh_username            = "vagrant"
   virtualbox_version_file = ""
-  vboxmanage              = [
-				["modifyvm", "{{ .Name }}", "--graphicscontroller", "vmsvga"],
-				["modifyvm", "{{ .Name }}", "--vram", "9"],
-				["modifyvm", "{{ .Name }}", "--nat-localhostreachable1", "on"]
-			    ]
+  vboxmanage = [
+    ["modifyvm", "{{ .Name }}", "--graphicscontroller", "vmsvga"],
+    ["modifyvm", "{{ .Name }}", "--vram", "9"],
+    ["modifyvm", "{{ .Name }}", "--nat-localhostreachable1", "on"]
+  ]
+}
+
+source "qemu" "fcos" {
+  # https://developer.hashicorp.com/packer/plugins/builders/qemu
+  accelerator = "kvm"
+  headless    = "${var.headless}"
+  memory      = "${var.memory}"
+  boot_wait   = "60s"
+  boot_command = [
+    "sudo coreos-installer install /dev/vda --insecure-ignition --ignition-url http://{{ .HTTPIP }}:{{ .HTTPPort }}/config.ign",
+    " && sudo reboot<enter>",
+    "<wait90s>",
+  ]
+  disk_size        = "${var.disk_size}"
+  format           = "qcow2"
+  iso_checksum     = "sha256:${var.iso_checksum}"
+  iso_url          = "${var.iso_url}"
+  output_directory = "${local.workdirpacker}-qemu"
+  qemuargs = [
+    ["-smp", "${var.cpus}"],
+  ]
+  shutdown_command     = "sudo poweroff"
+  ssh_username         = "vagrant"
+  ssh_private_key_file = "${path.root}/files/vagrant-id_rsa"
+  /* ssh_timeout          = "10000s" */
+  /* vm_name        = "container-linux-${var.release}.qcow2" */
+  http_directory = "${local.http_directory}"
 }
 
 build {
-  sources = ["source.virtualbox-iso.fedora-coreos"]
+# https://developer.hashicorp.com/packer/docs/templates/hcl_templates/blocks/build
+  sources = [
+    "source.virtualbox-iso.fcos",
+    "source.qemu.fcos"
+  ]
 
   provisioner "shell" {
+  # https://developer.hashicorp.com/packer/docs/provisioners
+  # Use Ignition for this, not this.
     environment_vars  = ["http_proxy=${var.http_proxy}", "https_proxy=${var.https_proxy}", "no_proxy=${var.no_proxy}"]
     execute_command   = "sudo -E env {{ .Vars }} bash '{{ .Path }}'"
     expect_disconnect = false
     scripts           = ["${path.root}/provision/provision.sh"]
   }
 
-# https://developer.hashicorp.com/vagrant/docs/boxes/info
   post-processors {
+  # https://developer.hashicorp.com/packer/docs/post-processors
+
     post-processor "artifice" {
-      files = ["${var.build_directory}/packer-${var.os_name}-virtualbox/info.json"]
+    # https://developer.hashicorp.com/vagrant/docs/boxes/info
+      /* files = ["${var.build_directory}/packer-${var.os_name}-{{.Provider}}/info.json"] */
+      files = ["${output_directory}/info.json"]
     }
+
     post-processor "shell-local" {
-      inline = ["echo {\"os_name\": \"${var.os_name}\", \"release\": \"${var.release}\"} > ${local.workdirpacker}/info.json"]
+      inline = [
+        "echo \"{\n\"os_name\": \"${var.os_name}\", \"release\": \"${var.release}\" } > ${output_directory}/info.json"
+      ]
     }
-  }
-  post-processor "vagrant" {
-    compression_level    = 9
-    include              = ["${local.workdirpacker}/info.json"]
-    output               = "${var.build_directory}/${var.os_name}-${var.release}_{{.Provider}}.box"
-    provider_override    = "virtualbox"
-    vagrantfile_template = "${path.root}/files/vagrantfile"
-  }
-}
+  } // post-processors
+
+  post-processors {
+    post-processor "vagrant" {
+      # https://developer.hashicorp.com/packer/plugins/post-processors/vagrant/vagrant
+      /* compression_level    = 9 */
+      include              = ["${var.build_directory}/info.json"]
+      output               = "${var.build_directory}/${var.os_name}-${var.release}_{{.Provider}}.box"
+      # https://developer.hashicorp.com/packer/plugins/post-processors/vagrant/vagrant#artifice
+      provider_override    = "virtualbox"
+      vagrantfile_template = "${path.root}/files/vagrantfile"
+    }
+
+  } // post-processors
+
+} // build
